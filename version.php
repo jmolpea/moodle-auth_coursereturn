@@ -27,7 +27,7 @@ defined('MOODLE_INTERNAL') || die();
 $plugin->component = 'auth_coursereturn';
 $plugin->version = 2026111600;
 $plugin->requires = 2024100700;
-$plugin->supported = [405, 405];
+$plugin->supported = [405, 503];
 $plugin->maturity = MATURITY_STABLE;
 $plugin->release = '1.1.0';
 $plugin->dependencies = [

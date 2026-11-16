@@ -10,7 +10,7 @@ Course page â†’ standard Moodle sign-up form (with a notice naming the course) â
 
 ## Requirements
 
-- Moodle 4.5 LTS (`$plugin->supported = [405, 405]`).
+- Moodle 4.5 LTS to 5.3 (`$plugin->supported = [405, 503]`).
 - Core plugins `auth_email` and `enrol_self` (both ship with Moodle).
 - Outgoing email configured on the site (SMTP recommended) and cron running.
 
