@@ -7,6 +7,9 @@
 - New: the page shown after signing up names the course.
 - New: an expired link shows its own message instead of "invalid confirmation data", and a link opened again after confirmation asks the user to log in to continue to the course.
 - New: Brazilian Portuguese language pack.
+- New: a "Configuration manual" link at the top of the plugin settings.
+- Fix: whether the course may be named is now checked for the new account, not for the anonymous visitor, so the email and the confirmation page name the course on sites that force users to log in. Hidden courses are still never named.
+- Supported Moodle versions: 4.5 LTS to 5.3, tested in CI.
 
 ## 1.0.0 (2026092700)
 

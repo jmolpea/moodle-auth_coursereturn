@@ -83,7 +83,10 @@ if (!data_submitted()) {
         'id, email',
         MUST_EXIST
     );
-    $course = \auth_coursereturn\flow::visible_course(get_user_preferences('auth_email_wantsurl', '', $account->id));
+    $course = \auth_coursereturn\flow::visible_course(
+        get_user_preferences('auth_email_wantsurl', '', $account->id),
+        $account
+    );
     if (!$course) {
         $intro = get_string('confirmpage_nocourse', 'auth_coursereturn');
         $button = get_string('confirmaccount', 'auth_coursereturn');

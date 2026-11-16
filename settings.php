@@ -26,6 +26,11 @@ defined('MOODLE_INTERNAL') || die();
 
 if ($ADMIN->fulltree) {
     $settings->add(new admin_setting_heading(
+        'auth_coursereturn/manual',
+        '',
+        \auth_coursereturn\manual::link_html()
+    ));
+    $settings->add(new admin_setting_heading(
         'auth_coursereturn/info',
         '',
         new lang_string('description', 'auth_coursereturn')

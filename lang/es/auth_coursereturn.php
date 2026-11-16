@@ -112,6 +112,8 @@ $string['emailconfirmsent_course'] = '<p>Le hemos enviado un email a <b>{$a->ema
 <p>Si no lo recibe en unos minutos, revise la carpeta de correo no deseado.</p>';
 $string['entrylink'] = 'Enlace de entrada al registro para este curso';
 $string['locktimeout'] = 'Se está procesando otra solicitud. Inténtelo de nuevo en unos instantes.';
+$string['manuallink'] = 'Manual de configuración';
+$string['manuallink_desc'] = 'Todos los ajustes explicados paso a paso, con ejemplos: {$a} (se abre en una pestaña nueva).';
 $string['otheraccount'] = 'Hay otra cuenta con sesión iniciada. Abra este enlace de confirmación en una ventana privada o cierre primero la sesión.';
 $string['pluginname'] = 'Registro por email con retorno al curso';
 $string['privacy:pending'] = 'Identificador temporal del curso y fecha de caducidad para completar un registro confirmado. Se elimina al terminar o, transcurridas 24 horas, mediante la tarea programada.';

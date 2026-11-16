@@ -57,25 +57,24 @@ class auth_plugin_coursereturn extends auth_plugin_email {
         // Save only a canonical course URL. Never persist arbitrary return URLs.
         $courseid = \auth_coursereturn\flow::course_from_url($SESSION->wantsurl ?? '');
         $SESSION->wantsurl = $courseid ? (new moodle_url('/course/view.php', ['id' => $courseid]))->out(false) : '';
-        $course = $courseid ? \auth_coursereturn\flow::visible_course($SESSION->wantsurl) : null;
-        if (!$course) {
+        if (!$courseid) {
             return parent::user_signup_with_confirmation($user, $notify, '/auth/coursereturn/confirm.php');
         }
-        return $this->signup_for_course($user, $notify, $course);
+        return $this->signup_for_course($user, $notify);
     }
 
     /**
      * Creates the account like auth_email does, then sends the course-specific email.
      *
      * Mirrors auth_plugin_email::user_signup_with_confirmation(); only the email and the
-     * final notice differ.
+     * final notice differ. The course is named only if the new account may see it, so hidden
+     * courses are never revealed; otherwise Moodle's standard email and notice are used.
      *
      * @param stdClass $user New user record. The password is in plain text.
      * @param bool $notify Print the "email sent" notice page.
-     * @param stdClass $course Course the user signed up from.
      * @return bool|void
      */
-    protected function signup_for_course(stdClass $user, bool $notify, stdClass $course) {
+    protected function signup_for_course(stdClass $user, bool $notify) {
         global $CFG, $SESSION, $PAGE, $OUTPUT;
         require_once($CFG->dirroot . '/user/profile/lib.php');
         require_once($CFG->dirroot . '/user/lib.php');
@@ -97,7 +96,10 @@ class auth_plugin_coursereturn extends auth_plugin_email {
         set_user_preference('auth_email_wantsurl', $SESSION->wantsurl, $user);
         \core\event\user_created::create_from_userid($user->id)->trigger();
 
-        if (!\auth_coursereturn\email::send_confirmation($user, $course)) {
+        $course = \auth_coursereturn\flow::visible_course($SESSION->wantsurl, $user);
+        $sent = $course ? \auth_coursereturn\email::send_confirmation($user, $course) :
+            send_confirmation_email($user, '/auth/coursereturn/confirm.php');
+        if (!$sent) {
             throw new moodle_exception('auth_emailnoemail', 'auth_email');
         }
         if (!$notify) {
@@ -108,10 +110,11 @@ class auth_plugin_coursereturn extends auth_plugin_email {
         $PAGE->set_title($emailconfirm);
         $PAGE->set_heading($PAGE->course->fullname);
         echo $OUTPUT->header();
-        notice(get_string('emailconfirmsent_course', 'auth_coursereturn', (object)[
+        $message = $course ? get_string('emailconfirmsent_course', 'auth_coursereturn', (object)[
             'email' => s($user->email),
             'coursename' => \auth_coursereturn\flow::course_name($course),
-        ]), new moodle_url('/'));
+        ]) : get_string('emailconfirmsent', '', s($user->email));
+        notice($message, new moodle_url('/'));
     }
 
     /**

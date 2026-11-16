@@ -88,6 +88,19 @@ final class course_email_test extends \advanced_testcase {
     }
 
     /**
+     * The course is checked for the new account, so it is named even when anonymous
+     * visitors cannot list courses (site forces users to log in).
+     */
+    public function test_email_names_course_when_login_is_forced(): void {
+        global $CFG;
+        $this->resetAfterTest();
+        set_config('forcelogin', 1);
+        $course = $this->getDataGenerator()->create_course(['fullname' => 'Applied statistics']);
+        [$subject] = $this->signup_email($CFG->wwwroot . '/course/view.php?id=' . $course->id, 'forcedmail');
+        $this->assertStringContainsString('Applied statistics', $subject);
+    }
+
+    /**
      * Hidden courses are never named: the standard Moodle email is sent instead.
      */
     public function test_hidden_course_gets_standard_email(): void {

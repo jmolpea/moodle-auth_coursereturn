@@ -100,19 +100,23 @@ class flow {
     }
 
     /**
-     * Course of a local URL whose name may be shown to the current visitor.
+     * Course of a local URL whose name may be shown to a user.
+     *
+     * Pass the new account once it exists: anonymous visitors may lack the right to list
+     * courses (for example when the site forces users to log in).
      *
      * @param string $url Candidate URL.
+     * @param \stdClass|null $user User to check; the current user by default.
      * @return \stdClass|null Course record, or null.
      */
-    public static function visible_course(string $url): ?\stdClass {
+    public static function visible_course(string $url, ?\stdClass $user = null): ?\stdClass {
         global $DB;
         $id = self::course_from_url($url);
         if (!$id) {
             return null;
         }
         $course = $DB->get_record('course', ['id' => $id]);
-        return $course && \core_course_category::can_view_course_info($course) ? $course : null;
+        return $course && \core_course_category::can_view_course_info($course, $user) ? $course : null;
     }
 
     /**

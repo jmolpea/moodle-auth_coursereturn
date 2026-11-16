@@ -112,6 +112,8 @@ $string['emailconfirmsent_course'] = '<p>We have sent an email to <b>{$a->email}
 <p>If the email does not arrive within a few minutes, check your spam folder.</p>';
 $string['entrylink'] = 'Course registration entry link';
 $string['locktimeout'] = 'Another request is being processed. Please try again shortly.';
+$string['manuallink'] = 'Configuration manual';
+$string['manuallink_desc'] = 'Every setting explained step by step, with examples: {$a} (opens in a new tab).';
 $string['otheraccount'] = 'Another account is signed in. Open this confirmation link in a private window or sign out first.';
 $string['pluginname'] = 'Email registration with course return';
 $string['privacy:pending'] = 'Temporary course identifier and expiry time used to complete a confirmed registration. Removed on completion or after 24 hours by the scheduled task.';
