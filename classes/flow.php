@@ -148,7 +148,7 @@ class flow {
      * Partly hidden email address, so people can recognise their own account.
      *
      * @param string $email
-     * @return string For example "j•••@example.com".
+     * @return string First character, a mask and the domain.
      */
     public static function masked_email(string $email): string {
         $at = strrpos($email, '@');
