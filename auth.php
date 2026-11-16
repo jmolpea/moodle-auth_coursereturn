@@ -43,7 +43,10 @@ class auth_plugin_coursereturn extends auth_plugin_email {
     }
 
     /**
-     * Creates the account and sends Moodle's standard confirmation email synchronously.
+     * Creates the account and sends the confirmation email synchronously.
+     *
+     * Sign-ups started from a course get an email that names the course; others get
+     * Moodle's standard email.
      *
      * @param stdClass $user New user record.
      * @param bool $notify Print the "email sent" notice page.
@@ -54,7 +57,83 @@ class auth_plugin_coursereturn extends auth_plugin_email {
         // Save only a canonical course URL. Never persist arbitrary return URLs.
         $courseid = \auth_coursereturn\flow::course_from_url($SESSION->wantsurl ?? '');
         $SESSION->wantsurl = $courseid ? (new moodle_url('/course/view.php', ['id' => $courseid]))->out(false) : '';
-        return parent::user_signup_with_confirmation($user, $notify, '/auth/coursereturn/confirm.php');
+        $course = $courseid ? \auth_coursereturn\flow::visible_course($SESSION->wantsurl) : null;
+        if (!$course) {
+            return parent::user_signup_with_confirmation($user, $notify, '/auth/coursereturn/confirm.php');
+        }
+        return $this->signup_for_course($user, $notify, $course);
+    }
+
+    /**
+     * Creates the account like auth_email does, then sends the course-specific email.
+     *
+     * Mirrors auth_plugin_email::user_signup_with_confirmation(); only the email and the
+     * final notice differ.
+     *
+     * @param stdClass $user New user record. The password is in plain text.
+     * @param bool $notify Print the "email sent" notice page.
+     * @param stdClass $course Course the user signed up from.
+     * @return bool|void
+     */
+    protected function signup_for_course(stdClass $user, bool $notify, stdClass $course) {
+        global $CFG, $SESSION, $PAGE, $OUTPUT;
+        require_once($CFG->dirroot . '/user/profile/lib.php');
+        require_once($CFG->dirroot . '/user/lib.php');
+
+        $plainpassword = $user->password;
+        $user->password = hash_internal_user_password($user->password);
+        if (empty($user->calendartype)) {
+            $user->calendartype = $CFG->calendartype;
+        }
+        if (method_exists(\core_user::class, 'create_user')) {
+            // Moodle 5.3 and later.
+            $user->id = \core_user::create_user($user, false, false);
+            \core_user::add_password_history($user->id, $plainpassword);
+        } else {
+            $user->id = user_create_user($user, false, false);
+            user_add_password_history($user->id, $plainpassword);
+        }
+        profile_save_data($user);
+        set_user_preference('auth_email_wantsurl', $SESSION->wantsurl, $user);
+        \core\event\user_created::create_from_userid($user->id)->trigger();
+
+        if (!\auth_coursereturn\email::send_confirmation($user, $course)) {
+            throw new moodle_exception('auth_emailnoemail', 'auth_email');
+        }
+        if (!$notify) {
+            return true;
+        }
+        $emailconfirm = get_string('emailconfirm');
+        $PAGE->navbar->add($emailconfirm);
+        $PAGE->set_title($emailconfirm);
+        $PAGE->set_heading($PAGE->course->fullname);
+        echo $OUTPUT->header();
+        notice(get_string('emailconfirmsent_course', 'auth_coursereturn', (object)[
+            'email' => s($user->email),
+            'coursename' => \auth_coursereturn\flow::course_name($course),
+        ]), new moodle_url('/'));
+    }
+
+    /**
+     * Read-only state of a confirmation link, used before asking the user to confirm.
+     *
+     * @param string $username Username.
+     * @param string $confirmsecret Confirmation secret from the email.
+     * @return string One of 'confirm', 'already', 'expired' or 'invalid'.
+     */
+    public function confirmation_state(string $username, string $confirmsecret): string {
+        global $DB, $CFG;
+        $user = $DB->get_record('user', ['username' => $username, 'mnethostid' => $CFG->mnet_localhost_id]);
+        if (
+            !$user || $user->deleted || $user->suspended || $user->auth !== $this->authtype ||
+            $confirmsecret === '' || !hash_equals((string)$user->secret, $confirmsecret)
+        ) {
+            return 'invalid';
+        }
+        if ($user->confirmed) {
+            return 'already';
+        }
+        return \auth_coursereturn\flow::is_expired($user) ? 'expired' : 'confirm';
     }
 
     /**
@@ -86,8 +165,7 @@ class auth_plugin_coursereturn extends auth_plugin_email {
             if ($user->confirmed) {
                 return AUTH_CONFIRM_ALREADY;
             }
-            $ttl = (int)(get_config('auth_coursereturn', 'confirmationttl') ?: 604800);
-            if ($user->timecreated + $ttl < time()) {
+            if (\auth_coursereturn\flow::is_expired($user)) {
                 return AUTH_CONFIRM_ERROR;
             }
             $courseid = \auth_coursereturn\flow::course_from_url(

@@ -17,8 +17,10 @@
 /**
  * Account confirmation endpoint used in the emails sent by this plugin.
  *
- * GET only renders a page that submits a sesskey-protected POST, so link previews
- * and mail scanners that do not run JavaScript cannot consume the confirmation.
+ * GET never changes anything: it shows what confirming does (course, enrolment request,
+ * partly hidden email address) and a button. Only the sesskey-protected POST sent by that
+ * button confirms the account, so link previews and mail scanners cannot consume the link
+ * and the user explicitly accepts going to (and, if enabled, enrolling in) the course.
  *
  * @package    auth_coursereturn
  * @copyright  2026 RSMAX Consulting SL
@@ -48,53 +50,100 @@ if (!\auth_coursereturn\flow::confirmation_account_exists($data)) {
 if (isloggedin() && !isguestuser() && $USER->username !== $username) {
     throw new moodle_exception('otheraccount', 'auth_coursereturn', new moodle_url('/login/logout.php'));
 }
-if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-    // A plain GET is safe for mail scanners. The browser submits once after JS loads.
-    // Do not load theme JS/AJAX here: concurrent anonymous requests can overwrite
-    // the session cookie while complete_user_login rotates the session ID.
+$finishurl = new moodle_url('/auth/coursereturn/finish.php');
+$loginurl = new moodle_url('/login/index.php');
+$sameuser = isloggedin() && !isguestuser() && $USER->username === $username;
+/** @var auth_plugin_coursereturn $auth */
+$auth = get_auth_plugin('coursereturn');
+
+if (!data_submitted()) {
+    $state = $auth->confirmation_state($username, $secret);
+    if ($state === 'already') {
+        if ($sameuser) {
+            redirect($finishurl);
+        }
+        // A confirmation link is not a reusable login link.
+        redirect(
+            $loginurl,
+            get_string('alreadyconfirmed_login', 'auth_coursereturn'),
+            null,
+            \core\output\notification::NOTIFY_INFO
+        );
+    }
+    if ($state === 'expired') {
+        throw new moodle_exception('confirmationexpired', 'auth_coursereturn', $loginurl);
+    }
+    if ($state !== 'confirm') {
+        throw new moodle_exception('invalidconfirmdata');
+    }
+
+    $account = $DB->get_record(
+        'user',
+        ['username' => $username, 'mnethostid' => $CFG->mnet_localhost_id],
+        'id, email',
+        MUST_EXIST
+    );
+    $course = \auth_coursereturn\flow::visible_course(get_user_preferences('auth_email_wantsurl', '', $account->id));
+    if (!$course) {
+        $intro = get_string('confirmpage_nocourse', 'auth_coursereturn');
+        $button = get_string('confirmaccount', 'auth_coursereturn');
+    } else {
+        $name = html_writer::tag('strong', \auth_coursereturn\flow::course_name($course));
+        $key = get_config('auth_coursereturn', 'autoenrol') ? 'confirmpage_enrol' : 'confirmpage_course';
+        $intro = get_string($key, 'auth_coursereturn', $name);
+        $button = get_string('confirmandgo', 'auth_coursereturn');
+    }
+
+    // A minimal page without theme JavaScript or AJAX: concurrent anonymous requests could
+    // overwrite the session cookie while complete_user_login() rotates the session id.
     header('Content-Type: text/html; charset=utf-8');
-    header("Content-Security-Policy: default-src 'none'; script-src 'self'; form-action 'self'; " .
+    header("Content-Security-Policy: default-src 'none'; style-src 'self'; form-action 'self'; " .
         "base-uri 'none'; frame-ancestors 'none'");
+    $title = get_string('confirmpage_title', 'auth_coursereturn');
     echo '<!doctype html>';
     echo html_writer::start_tag('html', ['lang' => current_language(), 'dir' => right_to_left() ? 'rtl' : 'ltr']);
     echo '<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
-    echo html_writer::tag('title', get_string('confirming', 'auth_coursereturn'));
+    echo html_writer::tag('title', $title);
+    echo html_writer::empty_tag('link', ['rel' => 'stylesheet',
+        'href' => (new moodle_url('/auth/coursereturn/confirm.css'))->out(false)]);
     echo '</head><body><main>';
-    echo html_writer::tag('h1', get_string('confirming', 'auth_coursereturn'));
-    echo html_writer::tag('p', get_string('confirming_desc', 'auth_coursereturn'));
-    echo html_writer::start_tag('form', ['method' => 'post', 'id' => 'coursereturn-confirm',
-        'action' => $PAGE->url->out(false)]);
+    echo html_writer::tag('p', format_string(get_site()->fullname), ['class' => 'site']);
+    echo html_writer::tag('h1', $title);
+    echo html_writer::tag('p', $intro);
+    echo html_writer::tag('p', get_string(
+        'confirmpage_account',
+        'auth_coursereturn',
+        s(\auth_coursereturn\flow::masked_email($account->email))
+    ), ['class' => 'account']);
+    echo html_writer::start_tag('form', ['method' => 'post', 'action' => $PAGE->url->out(false)]);
     echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'data', 'value' => $data]);
     echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
-    echo html_writer::tag(
-        'button',
-        get_string('confirmaccount', 'auth_coursereturn'),
-        ['type' => 'submit', 'class' => 'btn btn-primary']
-    );
+    echo html_writer::tag('button', $button, ['type' => 'submit']);
     echo html_writer::end_tag('form');
-    echo html_writer::tag('script', '', ['src' => (new moodle_url('/auth/coursereturn/confirm.js'))->out(false),
-        'defer' => 'defer']);
+    echo html_writer::tag('p', get_string('confirmpage_ignore', 'auth_coursereturn'), ['class' => 'note']);
     echo '</main></body></html>';
     exit;
 }
+
 require_sesskey();
-$auth = get_auth_plugin('coursereturn');
 $result = $auth->user_confirm($username, $secret);
 if ($result === AUTH_CONFIRM_ALREADY) {
-    if (isloggedin() && !isguestuser() && $USER->username === $username) {
+    if ($sameuser) {
         // A double click by the same authenticated person needs no extra login page.
-        $SESSION->wantsurl = (new moodle_url('/auth/coursereturn/finish.php'))->out(false);
+        $SESSION->wantsurl = $finishurl->out(false);
         redirect($SESSION->wantsurl);
     }
-    // A confirmation link is not a reusable login link.
     redirect(
-        new moodle_url('/login/index.php'),
-        get_string('alreadyconfirmed'),
+        $loginurl,
+        get_string('alreadyconfirmed_login', 'auth_coursereturn'),
         null,
         \core\output\notification::NOTIFY_INFO
     );
 }
 if ($result !== AUTH_CONFIRM_OK) {
+    if ($auth->confirmation_state($username, $secret) === 'expired') {
+        throw new moodle_exception('confirmationexpired', 'auth_coursereturn', $loginurl);
+    }
     throw new moodle_exception('invalidconfirmdata');
 }
 $user = get_complete_user_data('username', $username);
@@ -102,5 +151,5 @@ complete_user_login($user);
 \auth_coursereturn\confirmation_mfa::credit_email($result, (int)$user->id);
 \core\session\manager::apply_concurrent_login_limit($user->id, session_id());
 // Retain this across the MFA after_config hook on the following request.
-$SESSION->wantsurl = (new moodle_url('/auth/coursereturn/finish.php'))->out(false);
+$SESSION->wantsurl = $finishurl->out(false);
 redirect($SESSION->wantsurl);

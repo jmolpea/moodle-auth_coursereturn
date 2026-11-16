@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.0 (2026111600)
+
+- New: explicit confirmation. The link in the email opens a page that names the course, says what confirming does and shows a partly hidden email address; only its **Confirm and go to the course** button confirms the account. It no longer submits itself with JavaScript, so neither mail scanners nor link previews can confirm the account, and the user explicitly accepts the course and, if automatic enrolment is on, the enrolment request.
+- New: the confirmation email names the course, explains the button and says until when the link is valid. With automatic enrolment on, it says that confirming means asking to be enrolled. Sign-ups without a visible course keep Moodle's standard email.
+- New: the page shown after signing up names the course.
+- New: an expired link shows its own message instead of "invalid confirmation data", and a link opened again after confirmation asks the user to log in to continue to the course.
+- New: Brazilian Portuguese language pack.
+
 ## 1.0.0 (2026092700)
 
 First stable release for Moodle 4.5 LTS.

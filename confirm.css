@@ -1,0 +1,76 @@
+/* Stand-alone styles for confirm.php, which loads no theme on purpose. */
+body {
+    margin: 0;
+    padding: 16px;
+    background: #f4f5f7;
+    color: #1d2125;
+    font: 16px/1.5 system-ui, sans-serif;
+}
+
+main {
+    box-sizing: border-box;
+    max-width: 34rem;
+    margin: 8vh auto 0;
+    padding: 2rem;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: .5rem;
+}
+
+h1 {
+    margin: 0 0 1rem;
+    font-size: 1.5rem;
+    line-height: 1.25;
+}
+
+.site,
+.account,
+.note {
+    color: #5c6670;
+    font-size: .9375rem;
+}
+
+.site {
+    margin-top: 0;
+}
+
+button {
+    width: 100%;
+    margin: .5rem 0 1rem;
+    padding: .75rem 1rem;
+    border: 0;
+    border-radius: .375rem;
+    background: #0f6cbf;
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+button:hover,
+button:focus {
+    background: #0c589c;
+}
+
+button:focus {
+    outline: 3px solid #8fbce6;
+    outline-offset: 2px;
+}
+
+@media (prefers-color-scheme: dark) {
+    body {
+        background: #1d2125;
+        color: #e9ecef;
+    }
+
+    main {
+        background: #2b3035;
+        border-color: #495057;
+    }
+
+    .site,
+    .account,
+    .note {
+        color: #adb5bd;
+    }
+}

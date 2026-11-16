@@ -33,16 +33,12 @@ class signup_form extends \login_signup_form {
      * Adds a notice naming the destination course above the core fields.
      */
     public function definition() {
-        global $SESSION, $DB;
+        global $SESSION;
         parent::definition();
-        $id = flow::course_from_url($SESSION->wantsurl ?? '');
-        if (!$id) {
-            return;
-        }
-        $course = $DB->get_record('course', ['id' => $id]);
-        if ($course && \core_course_category::can_view_course_info($course)) {
+        $course = flow::visible_course($SESSION->wantsurl ?? '');
+        if ($course) {
             $key = get_config('auth_coursereturn', 'autoenrol') ? 'signupnotice_enrol' : 'signupnotice';
-            $name = format_string($course->fullname, true, ['context' => \context_course::instance($id)]);
+            $name = flow::course_name($course);
             $element = $this->_form->createElement(
                 'static',
                 'coursereturnnotice',

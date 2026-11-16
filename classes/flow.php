@@ -27,6 +27,9 @@ class flow {
     /** @var string User preference holding the confirmed course destination. */
     public const PREFERENCE = 'auth_coursereturn_pending';
 
+    /** @var int Default lifetime of a confirmation link, in seconds (7 days). */
+    public const DEFAULT_TTL = 604800;
+
     /**
      * Routes core confirmation links (used by "resend" emails) for this plugin's accounts.
      *
@@ -94,6 +97,65 @@ class flow {
             return $id > SITEID && $DB->record_exists('course', ['id' => $id]) ? $id : 0;
         }
         return 0;
+    }
+
+    /**
+     * Course of a local URL whose name may be shown to the current visitor.
+     *
+     * @param string $url Candidate URL.
+     * @return \stdClass|null Course record, or null.
+     */
+    public static function visible_course(string $url): ?\stdClass {
+        global $DB;
+        $id = self::course_from_url($url);
+        if (!$id) {
+            return null;
+        }
+        $course = $DB->get_record('course', ['id' => $id]);
+        return $course && \core_course_category::can_view_course_info($course) ? $course : null;
+    }
+
+    /**
+     * Course full name formatted for display, in the course context.
+     *
+     * @param \stdClass $course
+     * @return string
+     */
+    public static function course_name(\stdClass $course): string {
+        return format_string($course->fullname, true, ['context' => \context_course::instance($course->id)]);
+    }
+
+    /**
+     * Lifetime of a confirmation link, in seconds.
+     *
+     * @return int
+     */
+    public static function confirmation_ttl(): int {
+        return (int)get_config('auth_coursereturn', 'confirmationttl') ?: self::DEFAULT_TTL;
+    }
+
+    /**
+     * Whether the confirmation link of an account is too old to be used.
+     *
+     * @param \stdClass $user User record with timecreated.
+     * @return bool
+     */
+    public static function is_expired(\stdClass $user): bool {
+        return (int)$user->timecreated + self::confirmation_ttl() < time();
+    }
+
+    /**
+     * Partly hidden email address, so people can recognise their own account.
+     *
+     * @param string $email
+     * @return string For example "j•••@example.com".
+     */
+    public static function masked_email(string $email): string {
+        $at = strrpos($email, '@');
+        if ($at === false || $at === 0) {
+            return '•••';
+        }
+        return \core_text::substr($email, 0, 1) . '•••' . substr($email, $at);
     }
 
     /**
